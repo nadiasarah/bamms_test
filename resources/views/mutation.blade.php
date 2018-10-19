@@ -12,7 +12,9 @@
         </ul>
       </div>
       <div class="col-10">
-        <h3>Account number: {{$account_number}}</h3>
+        <h4>Account number: {{$account->account_number}}</h4>
+        <h4>Account balance: {{$account->balance}}</h4>
+        <br>
         <table class="table">
           <tr>
             <th>No.</th>

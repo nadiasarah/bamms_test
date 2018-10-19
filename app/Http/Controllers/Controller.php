@@ -59,6 +59,7 @@ class Controller extends BaseController
       $newAccount->account_number = $account_number;
       $newAccount->type = $req->type;
       $newAccount->description = $req->description;
+      $newAccount->balance = 0;
       $newAccount->save();
 
       if ($req->address != null) {
@@ -105,6 +106,14 @@ class Controller extends BaseController
       $newTransaction->amount = $req->amount;
       $newTransaction->save();
 
+      $account = Account::where('customer_id', Auth::user()->id)
+                        ->first();
+
+      $balance = $account->balance + $req->amount;
+
+      $account->balance = $balance;
+      $account->save();
+
       return redirect()->back()->withSuccess('Transaction success.');
     }
 
@@ -136,14 +145,28 @@ class Controller extends BaseController
                         ->withInput();
         }
 
-      $newTransaction = new Transaction;
-      $newTransaction->type = 2;
-      $newTransaction->name = 'withdraw';
-      $newTransaction->customer_id = Auth::user()->id;
-      $newTransaction->amount = $req->amount;
-      $newTransaction->save();
+      $account = Account::where('customer_id', Auth::user()->id)
+                        ->first();
 
-      return redirect()->back()->withSuccess('Transaction success.');
+      if ($account->balance < $req->amount) {
+        return redirect()->back()
+              ->withErrors(['msg'=>'Your balance is insufficient.']);
+      }
+      else {
+        $balance = $account->balance - $req->amount;
+
+        $account->balance = $balance;
+        $account->save();
+
+        $newTransaction = new Transaction;
+        $newTransaction->type = 2;
+        $newTransaction->name = 'withdraw';
+        $newTransaction->customer_id = Auth::user()->id;
+        $newTransaction->amount = $req->amount;
+        $newTransaction->save();
+
+        return redirect()->back()->withSuccess('Transaction success.');
+      }
     }
 
     public function getTransfer(Request $req)
@@ -175,24 +198,37 @@ class Controller extends BaseController
                         ->withInput();
         }
 
-      $newTransaction = new Transaction;
-      $newTransaction->type = 2;
-      $newTransaction->name = 'transfer';
-      $newTransaction->customer_id = Auth::user()->id;
-      $newTransaction->amount = $req->amount;
-      $newTransaction->receiver_account_number = $req->receiver_account_number;
-      $newTransaction->save();
+        $account = Account::where('customer_id', Auth::user()->id)
+                          ->first();
 
-      return redirect()->back()->withSuccess('Transaction success.');
+        if ($account->balance < $req->amount) {
+          return redirect()->back()
+                ->withErrors(['msg'=>'Your balance is insufficient.']);
+        }
+        else {
+          $balance = $account->balance - $req->amount;
+
+          $account->balance = $balance;
+          $account->save();
+
+          $newTransaction = new Transaction;
+          $newTransaction->type = 2;
+          $newTransaction->name = 'transfer';
+          $newTransaction->customer_id = Auth::user()->id;
+          $newTransaction->amount = $req->amount;
+          $newTransaction->receiver_account_number = $req->receiver_account_number;
+          $newTransaction->save();
+
+          return redirect()->back()->withSuccess('Transaction success.');
+        }
     }
 
     public function getMutation(Request $req)
     {
       $customer_id = Auth::user()->id;
 
-      $account_number = Account::where('customer_id', $customer_id)
-                                ->first()
-                                ->account_number;
+      $account = Account::where('customer_id', $customer_id)
+                                ->first();
 
       $transactions = Transaction::where('customer_id', $customer_id)
                                   ->orderBy('created_at', 'desc')
@@ -200,7 +236,7 @@ class Controller extends BaseController
                                   ->get();
 
       $data = [
-        'account_number' => $account_number,
+        'account' => $account,
         'transactions' => $transactions
       ];
 
